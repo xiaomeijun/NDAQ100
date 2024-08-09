@@ -1,3 +1,4 @@
+#获取纳斯达克100指数钉钉发送到群消息
 import requests
 import yfinance as yf
 from datetime import datetime
