@@ -1,0 +1,153 @@
+import pygame
+import tkinter as tk
+from tkinter import filedialog, messagebox, ttk
+import os
+import random
+import json
+
+class MusicPlayer:
+    def __init__(self, root):
+        self.root = root
+        self.root.title("MP3 播放器")
+        self.root.geometry("400x300")  # 设置窗口大小
+        self.root.configure(bg="#f0f0f0")  # 设置背景颜色
+        
+        # 初始化 pygame 的音频模块
+        pygame.mixer.init()
+        
+        # 创建主框架
+        self.main_frame = ttk.Frame(root, padding="10")
+        self.main_frame.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
+        
+        # 创建按钮
+        self.load_button = ttk.Button(self.main_frame, text="加载音乐", command=self.load_music)
+        self.load_button.grid(row=0, column=0, pady=5, padx=5, sticky=tk.W+tk.E)
+        
+        self.play_button = ttk.Button(self.main_frame, text="播放音乐", command=self.play_music, state=tk.DISABLED)
+        self.play_button.grid(row=1, column=0, pady=5, padx=5, sticky=tk.W+tk.E)
+        
+        self.stop_button = ttk.Button(self.main_frame, text="停止音乐", command=self.stop_music, state=tk.DISABLED)
+        self.stop_button.grid(row=2, column=0, pady=5, padx=5, sticky=tk.W+tk.E)
+        
+        # 创建标签显示当前播放的歌曲
+        self.song_label = tk.Label(self.main_frame, text="当前播放: 无", bg="#f0f0f0", font=("Arial", 10, "italic"))
+        self.song_label.grid(row=3, column=0, columnspan=2, pady=10, padx=5, sticky=tk.W+tk.E)
+        
+        # 创建列表框用于显示音乐文件
+        self.music_listbox = tk.Listbox(self.main_frame, selectmode=tk.SINGLE, bg="#ffffff", height=10)
+        self.music_listbox.grid(row=0, column=1, rowspan=4, pady=10, padx=10, sticky=tk.N+tk.S+tk.E+tk.W)
+        
+        # 配置主框架的列和行权重，使其自适应
+        self.main_frame.columnconfigure(1, weight=1)
+        self.main_frame.rowconfigure(0, weight=1)
+        self.main_frame.rowconfigure(1, weight=1)
+        self.main_frame.rowconfigure(2, weight=1)
+        self.main_frame.rowconfigure(3, weight=1)
+        
+        self.music_files = []
+        self.current_file = None
+
+        self.current_song_window = None
+
+        # 尝试加载之前保存的音乐文件列表
+        self.load_saved_music_files()
+
+    def load_music(self):
+        file_paths = filedialog.askopenfilenames(filetypes=[("MP3 Files", "*.mp3")])
+        if file_paths:
+            self.music_listbox.delete(0, tk.END)  # 清空现有列表
+            self.music_files = list(file_paths)
+            for file in self.music_files:
+                self.music_listbox.insert(tk.END, os.path.basename(file))
+            self.play_button.config(state=tk.NORMAL)
+            self.stop_button.config(state=tk.NORMAL)
+            print("加载了音乐文件")
+            self.save_music_files()  # 保存音乐文件列表
+
+    def play_music(self):
+        if self.music_files:
+            selected_index = self.music_listbox.curselection()
+            if selected_index:
+                self.current_file = self.music_files[selected_index[0]]
+            else:
+                messagebox.showwarning("警告", "请先选择一首音乐")
+                return
+            
+            # 确保文件存在
+            if not os.path.isfile(self.current_file):
+                messagebox.showerror("错误", "音乐文件不存在")
+                return
+            
+            pygame.mixer.music.load(self.current_file)
+            pygame.mixer.music.play()
+            pygame.mixer.music.set_endevent(pygame.USEREVENT)  # 设置播放结束事件
+            self.song_label.config(text=f"当前播放: {os.path.basename(self.current_file)}")
+            print(f"播放音乐: {os.path.basename(self.current_file)}")
+            self.update_current_song_window()  # 更新当前歌曲窗口
+            self.root.after(100, self.check_music_status)  # 检查音乐状态
+
+    def update_current_song_window(self):
+        if self.current_song_window is None or not self.current_song_window.winfo_exists():
+            self.current_song_window = tk.Toplevel(self.root)
+            self.current_song_window.title("当前播放歌曲")
+            self.current_song_window.geometry("300x100")
+            self.current_song_window.configure(bg="#f0f0f0")
+        
+        # 清空之前的内容并更新
+        for widget in self.current_song_window.winfo_children():
+            widget.destroy()
+        
+        song_label = tk.Label(self.current_song_window, text=f"当前播放: {os.path.basename(self.current_file)}", bg="#f0f0f0", font=("Arial", 12))
+        song_label.pack(expand=True, fill=tk.BOTH, padx=20, pady=20)
+
+    def check_music_status(self):
+        # 检查音乐是否还在播放
+        if not pygame.mixer.music.get_busy():
+            self.play_random_music()  # 自动播放随机音乐
+        else:
+            self.root.after(100, self.check_music_status)  # 继续检查状态
+
+    def play_random_music(self):
+        if self.music_files:
+            self.current_file = random.choice(self.music_files)
+            pygame.mixer.music.load(self.current_file)
+            pygame.mixer.music.play()
+            pygame.mixer.music.set_endevent(pygame.USEREVENT)  # 设置播放结束事件
+            self.song_label.config(text=f"当前播放: {os.path.basename(self.current_file)}")
+            print(f"自动播放随机音乐: {os.path.basename(self.current_file)}")
+            self.update_current_song_window()  # 更新当前歌曲窗口
+            self.root.after(100, self.check_music_status)  # 检查音乐状态
+
+    def stop_music(self):
+        pygame.mixer.music.stop()
+        self.song_label.config(text="当前播放: 无")
+        if self.current_song_window:
+            self.current_song_window.destroy()  # 关闭当前歌曲窗口
+        print("停止音乐")
+
+    def save_music_files(self):
+        # 保存音乐文件列表到文件
+        with open("music_files.json", "w") as file:
+            json.dump(self.music_files, file)
+
+    def load_saved_music_files(self):
+        # 从文件加载音乐文件列表
+        if os.path.exists("music_files.json"):
+            with open("music_files.json", "r") as file:
+                self.music_files = json.load(file)
+                self.music_listbox.delete(0, tk.END)  # 清空现有列表
+                for file in self.music_files:
+                    self.music_listbox.insert(tk.END, os.path.basename(file))
+                if self.music_files:
+                    self.play_button.config(state=tk.NORMAL)
+                    self.stop_button.config(state=tk.NORMAL)
+
+if __name__ == "__main__":
+    root = tk.Tk()
+    
+    # 创建样式
+    style = ttk.Style()
+    style.configure("TButton", padding=6, relief="flat", background="#4CAF50", foreground="#333333", font=("Arial", 10, "bold"))
+    
+    app = MusicPlayer(root)
+    root.mainloop()
