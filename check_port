@@ -1,0 +1,20 @@
+import socket
+
+start_ip = 198
+end_ip = 251
+base_ip = "192.168.100."
+
+def check_port(ip, port):
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock.settimeout(1)  
+    result = sock.connect_ex((ip, port))
+    if result == 0:
+        print("{}: {} is open".format(ip, port))
+    else:
+        print("{}: {} is closed".format(ip, port))
+    sock.close()
+
+for i in range(start_ip, end_ip + 1):
+    ip = base_ip + str(i)
+    check_port(ip, 8081)
+
